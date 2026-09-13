@@ -18,11 +18,11 @@ type Row = {
 const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 
 async function customers(): Promise<Row[]> {
-  // The join is the point. Masking rewrites customers.email and
-  // orders.customer_id, and both carry `link: customer` in masking.yaml so
-  // they are rewritten consistently. If they were not, this query would return
-  // every customer with zero orders and the page would look empty rather than
-  // wrong, which is the failure the linked transform exists to prevent.
+  // The join is the point. Masking rewrites customers.email, name and phone,
+  // and copies customers.id and orders.customer_id unchanged, so every order
+  // still belongs to the same customer. A masking that changed one key and not
+  // the other would make this query return every customer with zero orders,
+  // and the page would look empty rather than wrong.
   const { rows } = await db().query<Row>(`
     SELECT c.id,
            c.name,

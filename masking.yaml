@@ -21,21 +21,18 @@ rules:
     transform: phone
     why: "kept in the same shape, so a form that validates a number still validates this one"
 
-  # The join. customers.id and orders.customer_id have to become the same new
-  # value or every order in the environment belongs to nobody, and the API's
-  # only interesting query returns an empty list. `link` is what keeps them
-  # together.
+  # Surrogate keys. An id is a row number the database assigned, not a fact
+  # about a person, and it is the primary key and the foreign key both, so it
+  # stays as it is and every order still belongs to the same customer.
   - table: customers
     column: id
-    transform: int_fpe
-    link: customer
-    why: "remapped, and linked so the foreign key still joins"
+    transform: preserve
+    why: "a generated row number, and the primary key the orders join on"
 
   - table: orders
     column: customer_id
-    transform: int_fpe
-    link: customer
-    why: "the other half of the join"
+    transform: preserve
+    why: "the other half of that join, kept so the foreign key still holds"
 
   # Reviewed and left alone. An order's value and its timestamp are the shape
   # of the business, not a fact about a person, and masking them would make

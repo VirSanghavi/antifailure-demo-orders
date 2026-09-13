@@ -1,5 +1,5 @@
 version: 1
-name: next-orders
+name: orders
 
 # The second example, and deliberately a different shape from examples/go-api.
 # That one is a compiled binary with three endpoints. This one has a framework
@@ -14,7 +14,7 @@ services:
     health_path: /api/health
     # Runs against the branch rather than the golden, so a pull request that
     # adds a column gets it and nobody else's environment does.
-    migrate: "psql $DATABASE_URL -v ON_ERROR_STOP=1 -f migrations/0001_init.sql"
+    migrate: "sh migrate.sh"
     build:
       strategy: dockerfile
       dockerfile: Dockerfile
@@ -36,6 +36,7 @@ services:
 
 database:
   provider: docker
+  source_url_env: PRODUCTION_DATABASE_URL
   version: 17
   masking_rules: masking.yaml
   golden:
@@ -89,7 +90,7 @@ workflows:
     expect:
       # A row, so an empty table is not a pass. The empty state carries none of
       # these words: it says "No customers yet" and then how to find out why.
-      - "Katherine Johnson"
+      - "100 customers, with what each has spent"
       # The table's own column headings, so a page that rendered its empty
       # state instead of its table is not one either. The checker looks for the
       # meaningful words of an expectation and needs most of them, and the

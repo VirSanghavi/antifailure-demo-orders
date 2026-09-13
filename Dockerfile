@@ -34,6 +34,7 @@ COPY --from=build /app/.next/static ./.next/static
 # The migration reads this by a relative path, so it has to be in the image and
 # the working directory has to be the one it is relative to.
 COPY migrations ./migrations
+COPY migrate.sh ./migrate.sh
 
 USER app
 EXPOSE 3000

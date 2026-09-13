@@ -36,7 +36,9 @@ services:
 
 database:
   provider: docker
-  source_url_env: PRODUCTION_DATABASE_URL
+  # On a CI runner there is no production to copy, so the golden is seeded
+  # with production's shape instead: see seed.sh.
+  seed: "sh seed.sh"
   version: 17
   masking_rules: masking.yaml
   golden:

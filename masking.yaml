@@ -21,28 +21,6 @@ rules:
     transform: phone
     why: "kept in the same shape, so a form that validates a number still validates this one"
 
-  # Surrogate keys. An id is a row number the database assigned, not a fact
-  # about a person, and it is the primary key and the foreign key both, so it
-  # stays as it is and every order still belongs to the same customer.
-  - table: customers
-    column: id
-    transform: preserve
-    why: "a generated row number, and the primary key the orders join on"
-
-  - table: orders
-    column: customer_id
-    transform: preserve
-    why: "the other half of that join, kept so the foreign key still holds"
-
-  # Reviewed and left alone. An order's value and its timestamp are the shape
-  # of the business, not a fact about a person, and masking them would make
-  # every report in the environment meaningless.
-  - table: orders
-    column: total_cents
-    transform: preserve
-    why: "an amount is not personal, and the reports are the point of having data"
-
-  - table: orders
-    column: placed_at
-    transform: preserve
-    why: "the distribution over time is what load and insights measure"
+# customers.id, created_at and every orders column are integers and
+# timestamps: structural, not personal, so they need no rule and are copied
+# as they are. Only the three columns that hold a person are rewritten.

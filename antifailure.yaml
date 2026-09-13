@@ -1,0 +1,155 @@
+version: 1
+name: next-orders
+
+# The second example, and deliberately a different shape from examples/go-api.
+# That one is a compiled binary with three endpoints. This one has a framework
+# with a build step, server rendered pages, and the two problems that come with
+# them: a build that must not need a database, and a runtime that must.
+
+services:
+  - name: web
+    kind: web
+    path: .
+    port: 3000
+    health_path: /api/health
+    # Runs against the branch rather than the golden, so a pull request that
+    # adds a column gets it and nobody else's environment does.
+    migrate: "psql $DATABASE_URL -v ON_ERROR_STOP=1 -f migrations/0001_init.sql"
+    build:
+      strategy: dockerfile
+      dockerfile: Dockerfile
+      # What this build reaches, written down. Declared rather than enforced in
+      # this release: the engine validates the list and shows it in af explain,
+      # and the local builder does not yet seal a build. It is the record of
+      # what the build needs, not a control you can rely on.
+      allow_hosts:
+        - registry.npmjs.org
+        - dl-cdn.alpinelinux.org
+    env:
+      # DATABASE_URL is not declared here on purpose. The database block below
+      # injects it, and declaring it as well makes the secret resolver demand a
+      # value nobody has to supply.
+      - name: PORT
+        value: "3000"
+      - name: NODE_ENV
+        value: "production"
+
+database:
+  provider: docker
+  version: 17
+  masking_rules: masking.yaml
+  golden:
+    schedule: "0 3 * * *"
+    max_age: 168h
+    retain: 3
+
+egress:
+  # This application calls nothing, and the policy says so rather than leaving
+  # it open in case it one day does. An allowance nobody needs is an allowance
+  # nobody reviews.
+  #
+  # examples/go-api is where to look for a rule that is used: it takes a
+  # payment through api.stripe.com, answered by the pack that ships with the
+  # engine.
+  default: block
+
+personas:
+  # One, and it never signs in. This application has no accounts and no sign in
+  # page: the orders page is public and that is the whole of its access model.
+  # `login: none` is how a manifest says so, and it is what sends the agent
+  # straight to the workflow's start path instead of hunting for a form that
+  # does not exist.
+  - name: visitor
+    email: visitor@example.test
+    role: customer
+    login: none
+
+# What the agent does here, and what it deliberately does not claim.
+#
+# The expectations name words that are on the page rather than sentences about
+# the product. Without a model key the runner reads the accessibility tree and
+# checks these strings against it, so "the totals are right" can be neither
+# confirmed nor contradicted by anything on screen: the run comes back
+# unverified, which is honest and useless. Naming the page's own headings and a
+# customer's own name makes the same check verifiable at no cost.
+#
+# What that cannot reach is the money column. The page formats it as $475.00
+# and the checker compares words, so the amount cannot be written as an
+# expectation without a model key. That is the boundary rather than a gap to
+# paper over: with a key the agent reads the page and can be asked about the
+# arithmetic, and without one this asserts that rows rendered from the branch
+# and stops there.
+workflows:
+  - name: read-the-spend-by-customer
+    description: >-
+      As the visitor, open the orders page and check that a customer out of the
+      branch is on it, in a table rather than in the empty state.
+    persona: visitor
+    start_path: /
+    expect:
+      # A row, so an empty table is not a pass. The empty state carries none of
+      # these words: it says "No customers yet" and then how to find out why.
+      - "Katherine Johnson"
+      # The table's own column headings, so a page that rendered its empty
+      # state instead of its table is not one either. The checker looks for the
+      # meaningful words of an expectation and needs most of them, and the
+      # empty state has "customers" and the heading has "Orders" but neither
+      # "email" nor "spent" appears anywhere on a page with no table on it.
+      - "Customer Email Orders Spent"
+    tags: [smoke]
+
+# Two goals, and the second one is the point.
+#
+# An exploration is a goal with no script, so what it produces is the path it
+# took. The most valuable thing it produces is not the report: it is that a run
+# can be compiled into a declared workflow with `af explore --emit-workflow`,
+# which turns a one time observation into a check that runs on every pull
+# request. This example exists so that path can be walked against a real
+# application rather than a fixture, and both of its branches can: one goal is
+# reachable here and one is not.
+#
+# THE SAME CONSTRAINT AS THE EXPECTATIONS ABOVE, AND IT BITES HARDER HERE.
+# Without a model key the runner reads the accessibility tree and asks whether
+# the goal's own meaningful words appear on the page, and calls the goal met at
+# two thirds of them. A goal is therefore not free text: its words are the
+# whole of the check. That is why the first goal names what the page names,
+# down to "spent" and "email", and it is why "find" and "see" are not doing any
+# work in it. Written for a person and left to chance, a perfectly good goal
+# comes back unreached on an application that answers it.
+#
+# What that cannot reach is a goal about arithmetic or about how something
+# felt. With a model key the agent reads the page and can be asked. Without
+# one, this asks whether the page says what a person came for, and stops there.
+explore:
+  enabled: true
+  goals:
+    # Reached on the first page, because this application is one page and the
+    # answer is on it. That is not a weak exploration, it is an accurate one:
+    # the compiled workflow asserts something this run actually saw.
+    - name: what-each-customer-spent
+      goal: Find what every customer has spent, and what their email address is.
+      persona: visitor
+      start_path: /
+      budget:
+        steps: 10
+
+    # Not reachable here, on purpose, and the manifest says so rather than
+    # leaving somebody to discover it.
+    #
+    # This application is read only: the orders page offers no control and no
+    # field at all. So the agent arrives, finds nothing to press, and reports a
+    # dead end and an unreached goal. Compiling THAT is the case the promotion
+    # path has to get right, because the block it emits carries a workflow
+    # asserting something nobody has seen happen, and the notes beside it have
+    # to say so. A promotion that returned only the workflow would look
+    # finished and would be a check that goes unverified forever.
+    #
+    # It is also a true finding about this example rather than a contrivance. A
+    # page with no way onward is the shape of "nothing broke and I left", which
+    # is the question an exploration exists to ask.
+    - name: correct-a-customer-name
+      goal: Correct a spelling mistake in a customer's name.
+      persona: visitor
+      start_path: /
+      budget:
+        steps: 10

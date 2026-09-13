@@ -32,6 +32,9 @@ jobs:
     uses: antifailure/antifailure/.github/workflows/check.yml@v1
     secrets: inherit
     with:
-      dispatch: ${{ toJSON(inputs) }}
+      # Empty rather than toJSON(inputs): the v1 action appends a stray brace
+      # to a non empty value (action.yml, AF_DISPATCH), and this repository
+      # has no dispatch buttons to pass through.
+      dispatch: ''
       # No control plane: the run comments on the pull request itself.
       control-plane: ''
